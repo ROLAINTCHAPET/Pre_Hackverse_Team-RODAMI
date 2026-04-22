@@ -60,6 +60,7 @@ export interface UserStats {
   streak: number;
   completionRate?: number;
   nextLevelXp?: number;
+  xp: number;
 }
 
 export interface LeaderboardEntry {

@@ -34,6 +34,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sessionsCompleted: 0,
     tasksCompleted: 0,
     streak: 0,
+    xp: 0
   });
   const [sessions, setSessions] = useState<FocusSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +89,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user_data');
-    
+
     if (token && userData) {
       try {
         setUser(JSON.parse(userData));
@@ -103,8 +104,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addTask = async (taskData: { title: string; description?: string; priority: string; deadline: string; plannedPomodoros?: number }) => {
     try {
-      const formattedDeadline = taskData.deadline.includes('T') 
-        ? taskData.deadline.split('.')[0] 
+      const formattedDeadline = taskData.deadline.includes('T')
+        ? taskData.deadline.split('.')[0]
         : `${taskData.deadline}T23:59:59`;
 
       const response = await tasksApi.create({
@@ -112,7 +113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deadline: formattedDeadline,
         plannedPomodoros: taskData.plannedPomodoros || 1
       } as any);
-      
+
       setTasks(prev => [response, ...prev]);
     } catch (err) {
       console.error("Error adding task:", err);
@@ -131,7 +132,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       setTasks(prev => prev.map(t => t.id === id ? response : t));
-      
+
       if (status === 'DONE') {
         fetchStats();
       }
@@ -173,7 +174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Optionnel : Déclencher un effet visuel ici au lieu d'un alert
         console.log(`Level Up! ${response.newLevelTitle}`);
       }
-      
+
       refreshData();
     } catch (err) {
       console.error("Error saving session:", err);
@@ -186,7 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deadline = new Date(task.deadline);
     const now = new Date();
     const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     let urgencyScore = 0;
     if (diffDays <= 1) urgencyScore = 5;
     else if (diffDays <= 3) urgencyScore = 3;
