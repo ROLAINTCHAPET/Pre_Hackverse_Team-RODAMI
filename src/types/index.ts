@@ -31,9 +31,11 @@ export interface Badge {
 
 export interface User {
   id: string | number;
-  name: string;
+  username: string;
   email: string;
-  stats: UserStats;
+  totalPoints: number;
+  level: number;
+  levelTitle: string;
   badges: Badge[];
 }
 
@@ -42,6 +44,5 @@ export interface FocusSession {
   startTime: string;
   duration: number; // minutes
   type: 'POMODORO' | 'SHORT_BREAK' | 'LONG_BREAK';
-  completed: boolean;
   xpEarned: number;
 }

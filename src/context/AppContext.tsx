@@ -59,8 +59,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchSessions = async () => {
     try {
+      // Le guide ne mentionne pas explicitement cet endpoint mais on garde la logique paginée standard
       const data = await apiFetch('/sessions/history?size=50');
-      setSessions(data.content || []);
+      setSessions(Array.isArray(data) ? data : (data.content || []));
     } catch (err) {
       console.error("Error fetching sessions:", err);
     }
@@ -84,10 +85,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addTask = async (taskData: { title: string; description?: string; priority: string; deadline: string; plannedPomodoros?: number }) => {
     try {
+      // Formatage de la date pour correspondre à "2026-05-20T18:00:00"
+      const formattedDeadline = taskData.deadline.includes('T') 
+        ? taskData.deadline.split('.')[0] 
+        : `${taskData.deadline}T23:59:59`;
+
       const response = await apiFetch('/tasks', {
         method: 'POST',
         body: JSON.stringify({
           ...taskData,
+          deadline: formattedDeadline,
           plannedPomodoros: taskData.plannedPomodoros || 1
         }),
       });
@@ -136,23 +143,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const completeSession = async (duration: number, type: FocusSession['type'], taskId?: number | string) => {
     try {
+      // Formatage de la date ISO sans les millisecondes pour le backend
+      const startTime = new Date().toISOString().split('.')[0];
+
       const response = await apiFetch('/sessions/save', {
         method: 'POST',
         body: JSON.stringify({
           taskId: taskId || null,
-          startTime: new Date().toISOString(),
+          startTime: startTime,
           plannedDuration: duration,
           actualDuration: duration
         }),
       });
 
-      // Update stats with the response from backend
+      // Mise à jour immédiate des stats depuis la réponse (Guide ligne 92)
+      setStats(prev => ({
+        ...prev,
+        xp: response.totalPoints || response.newTotalPoints || prev.xp + response.pointsEarned,
+        level: response.newLevel || prev.level,
+        sessionsCompleted: prev.sessionsCompleted + 1,
+        totalFocusTime: prev.totalFocusTime + duration
+      }));
+
       if (response.leveledUp) {
         alert(`Félicitations ! Vous avez atteint le niveau ${response.newLevel} : ${response.newLevelTitle}`);
       }
       
-      await fetchStats();
-      // On pourrait aussi ajouter la session à l'état local si besoin
+      // On rafraîchit quand même pour être sûr
+      fetchStats();
+      fetchSessions();
     } catch (err) {
       console.error("Error saving session:", err);
     }
