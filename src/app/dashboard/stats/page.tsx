@@ -6,6 +6,7 @@ import { useApp } from "@/context/AppContext";
 import { Card } from "@/components/ui/Card";
 import { BarChart3, Clock, Zap, Calendar, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Leaderboard } from "@/components/dashboard/Leaderboard";
 
 export default function StatsPage() {
   const { sessions, isLoading } = useApp();
@@ -96,51 +97,57 @@ export default function StatsPage() {
           </div>
         </div>
 
-        {/* History List */}
-        <div className="space-y-6">
-          <h3 className="text-sm font-black uppercase tracking-widest text-text-main">Sessions Récentes</h3>
-          <Card className="overflow-hidden border-white/5 p-0 bg-bg-alt/40 backdrop-blur-md">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[600px]">
-                <thead className="bg-white/5 border-b border-white/10">
-                  <tr>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">Date</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">Type</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">Durée</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">XP</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 font-medium text-xs md:text-sm text-text-main">
-                  {sessions.length === 0 ? (
+        {/* Leaderboard and History */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div className="xl:col-span-2 space-y-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-text-main">Sessions Récentes</h3>
+            <Card className="overflow-hidden border-white/5 p-0 bg-bg-alt/40 backdrop-blur-md">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                  <thead className="bg-white/5 border-b border-white/10">
                     <tr>
-                      <td colSpan={4} className="px-6 py-10 text-center text-text-secondary italic">Aucune donnée historique disponible.</td>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">Date</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">Type</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">Durée</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary">XP</th>
                     </tr>
-                  ) : (
-                    sessions.map((s) => (
-                      <tr key={s.id} className="hover:bg-bg-main transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <Calendar size={14} className="text-text-secondary" />
-                            {new Date(s.startTime).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={cn(
-                            "px-2 py-1 text-[8px] md:text-[9px] font-black uppercase border",
-                            s.type === 'POMODORO' ? "border-primary text-primary" : "border-secondary text-secondary"
-                          )}>
-                            {s.type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 font-mono">{s.duration}m</td>
-                        <td className="px-6 py-4 font-black text-primary">+{s.xpEarned} XP</td>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-medium text-xs md:text-sm text-text-main">
+                    {sessions.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-10 text-center text-text-secondary italic">Aucune donnée historique disponible.</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+                    ) : (
+                      sessions.map((s) => (
+                        <tr key={s.id} className="hover:bg-bg-main transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <Calendar size={14} className="text-text-secondary" />
+                              {new Date(s.startTime).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn(
+                              "px-2 py-1 text-[8px] md:text-[9px] font-black uppercase border",
+                              s.type === 'POMODORO' ? "border-primary text-primary" : "border-secondary text-secondary"
+                            )}>
+                              {s.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-mono">{s.duration}m</td>
+                          <td className="px-6 py-4 font-black text-primary">+{s.xpEarned} XP</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+          
+          <div className="xl:col-span-1">
+            <Leaderboard />
+          </div>
         </div>
       </div>
     </DashboardLayout>

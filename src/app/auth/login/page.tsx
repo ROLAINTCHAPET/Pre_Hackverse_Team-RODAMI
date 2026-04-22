@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Rocket, Mail, Lock, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { apiFetch } from "@/lib/api";
+import { authApi } from "@/lib/api";
 import { Navbar } from "@/components/layout/Navbar";
+import { useApp } from "@/context/AppContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setUser } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -24,14 +26,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const data = await apiFetch('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await authApi.login({ email, password });
 
       // Stocker le token et les infos utilisateur
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('user_data', JSON.stringify(data.user));
+      
+      setUser(data.user);
 
       router.push("/dashboard");
     } catch (err) {

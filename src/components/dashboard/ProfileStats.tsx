@@ -14,22 +14,28 @@ const ALL_BADGES = [
 ];
 
 export const ProfileStats = () => {
-  const { stats } = useApp();
+  const { user, stats } = useApp();
+
+  const initials = user?.username
+    ? user.username.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : "JD";
 
   return (
     <div className="space-y-12">
       {/* Header Profile */}
       <section className="flex flex-col md:flex-row items-center gap-10">
         <div className="w-40 h-40 bg-primary text-white flex items-center justify-center text-6xl font-black rounded-none border-8 border-bg-main shadow-2xl relative shadow-primary/20">
-          JD
+          {initials}
           <div className="absolute -bottom-4 -right-4 bg-tertiary text-white w-12 h-12 flex items-center justify-center text-xl font-black border-4 border-bg-main">
             {stats.level}
           </div>
         </div>
         <div className="text-center md:text-left">
-          <h2 className="text-4xl font-black uppercase tracking-tighter text-text-main mb-2">Jean Dupont</h2>
+          <h2 className="text-4xl font-black uppercase tracking-tighter text-text-main mb-2">
+            {user?.username || "Jean Dupont"}
+          </h2>
           <p className="text-text-secondary uppercase text-[10px] font-black tracking-[0.3em] mb-6 inline-block border-b-2 border-primary pb-1">
-            Génie Informatique — 4ème année
+            {user?.levelTitle || "Novice du Focus"}
           </p>
           <div className="flex flex-wrap justify-center md:justify-start gap-4">
             <div className="px-6 py-3 bg-bg-alt/40 border border-white/10 backdrop-blur-sm">
@@ -38,7 +44,7 @@ export const ProfileStats = () => {
             </div>
             <div className="px-6 py-3 bg-bg-alt/40 border border-white/10 backdrop-blur-sm">
               <div className="text-[10px] font-black uppercase tracking-widest text-text-secondary mb-1">Ratio Focus</div>
-              <div className="text-xl font-bold text-text-main">92%</div>
+              <div className="text-xl font-bold text-text-main">{stats.completionRate || 0}%</div>
             </div>
           </div>
         </div>
@@ -48,9 +54,9 @@ export const ProfileStats = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: "Temps Total", value: `${stats.totalFocusTime}m`, icon: Zap },
-          { label: "XP Cumulé", value: stats.xp, icon: Star },
+          { label: "Points Total", value: stats.totalPoints, icon: Star },
           { label: "Tâches Finies", value: stats.tasksCompleted, icon: Target },
-          { label: "Série Record", value: "15j", icon: Trophy },
+          { label: "Série (Streak)", value: `${stats.streak}j`, icon: Trophy },
         ].map((stat, idx) => (
           <Card key={idx} className="p-6 text-center border-white/5 bg-bg-alt/20">
             <div className="flex justify-center mb-4">

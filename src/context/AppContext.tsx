@@ -1,10 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { Task, UserStats, FocusSession, TaskStatus } from "@/types";
-import { apiFetch } from "@/lib/api";
+import { Task, UserStats, FocusSession, TaskStatus, User } from "@/types";
+import { tasksApi, sessionsApi, statsApi } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 interface AppContextType {
+  user: User | null;
   tasks: Task[];
   stats: UserStats;
   sessions: FocusSession[];
@@ -15,15 +17,19 @@ interface AppContextType {
   completeSession: (duration: number, type: FocusSession['type'], taskId?: number | string) => Promise<void>;
   getSortedTasks: () => Task[];
   refreshData: () => Promise<void>;
+  logout: () => void;
+  setUser: (user: User | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<UserStats>({
     level: 1,
-    xp: 0,
+    totalPoints: 0,
     totalFocusTime: 0,
     sessionsCompleted: 0,
     tasksCompleted: 0,
@@ -34,7 +40,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchTasks = async () => {
     try {
-      const data = await apiFetch('/tasks/prioritized');
+      const data = await tasksApi.listPrioritized();
       setTasks(data);
     } catch (err) {
       console.error("Error fetching tasks:", err);
@@ -43,15 +49,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchStats = async () => {
     try {
-      const data = await apiFetch('/stats/me');
-      setStats({
-        level: data.level,
-        xp: data.totalPoints || 0,
-        totalFocusTime: data.totalFocusTime || 0,
-        sessionsCompleted: data.sessionsCompleted || 0,
-        tasksCompleted: data.tasksCompleted || 0,
-        streak: data.streak || 0,
-      });
+      const data = await statsApi.getMe();
+      setStats(data);
     } catch (err) {
       console.error("Error fetching stats:", err);
     }
@@ -59,8 +58,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchSessions = async () => {
     try {
-      // Le guide ne mentionne pas explicitement cet endpoint mais on garde la logique paginée standard
-      const data = await apiFetch('/sessions/history?size=50');
+      const data = await sessionsApi.history(50);
       setSessions(Array.isArray(data) ? data : (data.content || []));
     } catch (err) {
       console.error("Error fetching sessions:", err);
@@ -69,35 +67,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshData = useCallback(async () => {
     setIsLoading(true);
-    await Promise.all([fetchTasks(), fetchStats(), fetchSessions()]);
-    setIsLoading(false);
+    try {
+      await Promise.all([fetchTasks(), fetchStats(), fetchSessions()]);
+    } catch (err) {
+      console.error("Error refreshing data:", err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    setUser(null);
+    setTasks([]);
+    router.push("/auth/login");
+  }, [router]);
 
   // Initial load
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
-    if (token) {
-      Promise.resolve().then(() => refreshData());
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
+      try {
+        setUser(JSON.parse(userData));
+        refreshData();
+      } catch (e) {
+        logout();
+      }
     } else {
-      Promise.resolve().then(() => setIsLoading(false));
+      setIsLoading(false);
     }
-  }, [refreshData]);
+  }, [refreshData, logout]);
 
   const addTask = async (taskData: { title: string; description?: string; priority: string; deadline: string; plannedPomodoros?: number }) => {
     try {
-      // Formatage de la date pour correspondre à "2026-05-20T18:00:00"
       const formattedDeadline = taskData.deadline.includes('T') 
         ? taskData.deadline.split('.')[0] 
         : `${taskData.deadline}T23:59:59`;
 
-      const response = await apiFetch('/tasks', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...taskData,
-          deadline: formattedDeadline,
-          plannedPomodoros: taskData.plannedPomodoros || 1
-        }),
-      });
+      const response = await tasksApi.create({
+        ...taskData,
+        deadline: formattedDeadline,
+        plannedPomodoros: taskData.plannedPomodoros || 1
+      } as any);
+      
       setTasks(prev => [response, ...prev]);
     } catch (err) {
       console.error("Error adding task:", err);
@@ -107,23 +122,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateTaskStatus = async (id: string | number, status: TaskStatus) => {
     try {
-      // Le backend attend une mise à jour complète ou spécifique
-      // Si le backend n'a pas d'endpoint /status, on utilise le PUT global
       const task = tasks.find(t => t.id === id);
       if (!task) return;
 
-      const response = await apiFetch(`/tasks/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          ...task,
-          status
-        }),
+      const response = await tasksApi.update(id, {
+        ...task,
+        status
       });
 
       setTasks(prev => prev.map(t => t.id === id ? response : t));
       
       if (status === 'DONE') {
-        fetchStats(); // Update XP/Level
+        fetchStats();
       }
     } catch (err) {
       console.error("Error updating task:", err);
@@ -132,9 +142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteTask = async (id: string | number) => {
     try {
-      await apiFetch(`/tasks/${id}`, {
-        method: 'DELETE',
-      });
+      await tasksApi.delete(id);
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch (err) {
       console.error("Error deleting task:", err);
@@ -143,35 +151,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const completeSession = async (duration: number, type: FocusSession['type'], taskId?: number | string) => {
     try {
-      // Formatage de la date ISO sans les millisecondes pour le backend
       const startTime = new Date().toISOString().split('.')[0];
 
-      const response = await apiFetch('/sessions/save', {
-        method: 'POST',
-        body: JSON.stringify({
-          taskId: taskId || null,
-          startTime: startTime,
-          plannedDuration: duration,
-          actualDuration: duration
-        }),
+      const response = await sessionsApi.save({
+        taskId: taskId || null,
+        startTime: startTime,
+        plannedDuration: duration,
+        actualDuration: duration
       });
 
-      // Mise à jour immédiate des stats depuis la réponse (Guide ligne 92)
+      // Update local stats from response
       setStats(prev => ({
         ...prev,
-        xp: response.totalPoints || response.newTotalPoints || prev.xp + response.pointsEarned,
+        totalPoints: response.newTotalPoints || prev.totalPoints + response.pointsEarned,
         level: response.newLevel || prev.level,
         sessionsCompleted: prev.sessionsCompleted + 1,
         totalFocusTime: prev.totalFocusTime + duration
       }));
 
       if (response.leveledUp) {
-        alert(`Félicitations ! Vous avez atteint le niveau ${response.newLevel} : ${response.newLevelTitle}`);
+        // Optionnel : Déclencher un effet visuel ici au lieu d'un alert
+        console.log(`Level Up! ${response.newLevelTitle}`);
       }
       
-      // On rafraîchit quand même pour être sûr
-      fetchStats();
-      fetchSessions();
+      refreshData();
     } catch (err) {
       console.error("Error saving session:", err);
     }
@@ -199,6 +202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
+      user,
       tasks,
       stats,
       sessions,
@@ -208,7 +212,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteTask,
       completeSession,
       getSortedTasks,
-      refreshData
+      refreshData,
+      logout,
+      setUser
     }}>
       {children}
     </AppContext.Provider>
