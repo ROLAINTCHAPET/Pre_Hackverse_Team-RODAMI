@@ -1,19 +1,20 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Task, UserStats, FocusSession, Priority, TaskStatus } from "@/types";
-import { v4 as uuidv4 } from "uuid";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { Task, UserStats, FocusSession, TaskStatus } from "@/types";
+import { apiFetch } from "@/lib/api";
 
 interface AppContextType {
   tasks: Task[];
   stats: UserStats;
   sessions: FocusSession[];
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
-  updateTaskStatus: (id: string, status: TaskStatus) => void;
-  deleteTask: (id: string) => void;
-  addXP: (amount: number) => void;
-  completeSession: (duration: number, type: FocusSession['type']) => void;
+  isLoading: boolean;
+  addTask: (task: { title: string; description?: string; priority: string; deadline: string; plannedPomodoros?: number }) => Promise<void>;
+  updateTaskStatus: (id: string | number, status: TaskStatus) => Promise<void>;
+  deleteTask: (id: string | number) => Promise<void>;
+  completeSession: (duration: number, type: FocusSession['type'], taskId?: number | string) => Promise<void>;
   getSortedTasks: () => Task[];
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -29,91 +30,137 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     streak: 0,
   });
   const [sessions, setSessions] = useState<FocusSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load from LocalStorage
-  useEffect(() => {
-    const savedTasks = localStorage.getItem("focus_tasks");
-    const savedStats = localStorage.getItem("focus_stats");
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-    if (savedStats) setStats(JSON.parse(savedStats));
+  const fetchTasks = async () => {
+    try {
+      const data = await apiFetch('/tasks/prioritized');
+      setTasks(data);
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const data = await apiFetch('/stats/me');
+      setStats({
+        level: data.level,
+        xp: data.totalPoints || 0,
+        totalFocusTime: data.totalFocusTime || 0,
+        sessionsCompleted: data.sessionsCompleted || 0,
+        tasksCompleted: data.tasksCompleted || 0,
+        streak: data.streak || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching stats:", err);
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const data = await apiFetch('/sessions/history?size=50');
+      setSessions(data.content || []);
+    } catch (err) {
+      console.error("Error fetching sessions:", err);
+    }
+  };
+
+  const refreshData = useCallback(async () => {
+    setIsLoading(true);
+    await Promise.all([fetchTasks(), fetchStats(), fetchSessions()]);
+    setIsLoading(false);
   }, []);
 
-  // Save to LocalStorage
+  // Initial load
   useEffect(() => {
-    localStorage.setItem("focus_tasks", JSON.stringify(tasks));
-    localStorage.setItem("focus_stats", JSON.stringify(stats));
-  }, [tasks, stats]);
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      Promise.resolve().then(() => refreshData());
+    } else {
+      Promise.resolve().then(() => setIsLoading(false));
+    }
+  }, [refreshData]);
 
-  const addTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => {
-    const newTask: Task = {
-      ...taskData,
-      id: uuidv4(),
-      status: 'TODO',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setTasks([...tasks, newTask]);
+  const addTask = async (taskData: { title: string; description?: string; priority: string; deadline: string; plannedPomodoros?: number }) => {
+    try {
+      const response = await apiFetch('/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...taskData,
+          plannedPomodoros: taskData.plannedPomodoros || 1
+        }),
+      });
+      setTasks(prev => [response, ...prev]);
+    } catch (err) {
+      console.error("Error adding task:", err);
+      throw err;
+    }
   };
 
-  const updateTaskStatus = (id: string, status: TaskStatus) => {
-    setTasks(tasks.map(t => {
-      if (t.id === id) {
-        if (status === 'DONE' && t.status !== 'DONE') {
-          addXP(30);
-          setStats(prev => ({ ...prev, tasksCompleted: prev.tasksCompleted + 1 }));
-        }
-        return { ...t, status, updatedAt: new Date().toISOString() };
+  const updateTaskStatus = async (id: string | number, status: TaskStatus) => {
+    try {
+      // Le backend attend une mise à jour complète ou spécifique
+      // Si le backend n'a pas d'endpoint /status, on utilise le PUT global
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      const response = await apiFetch(`/tasks/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...task,
+          status
+        }),
+      });
+
+      setTasks(prev => prev.map(t => t.id === id ? response : t));
+      
+      if (status === 'DONE') {
+        fetchStats(); // Update XP/Level
       }
-      return t;
-    }));
+    } catch (err) {
+      console.error("Error updating task:", err);
+    }
   };
 
-  const deleteTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+  const deleteTask = async (id: string | number) => {
+    try {
+      await apiFetch(`/tasks/${id}`, {
+        method: 'DELETE',
+      });
+      setTasks(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      console.error("Error deleting task:", err);
+    }
   };
 
-  const addXP = (amount: number) => {
-    setStats(prev => {
-      let newXp = prev.xp + amount;
-      let newLevel = prev.level;
-      const xpToNext = prev.level * 1000; // Simplified scaling
+  const completeSession = async (duration: number, type: FocusSession['type'], taskId?: number | string) => {
+    try {
+      const response = await apiFetch('/sessions/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          taskId: taskId || null,
+          startTime: new Date().toISOString(),
+          plannedDuration: duration,
+          actualDuration: duration
+        }),
+      });
 
-      if (newXp >= xpToNext) {
-        newXp -= xpToNext;
-        newLevel += 1;
+      // Update stats with the response from backend
+      if (response.leveledUp) {
+        alert(`Félicitations ! Vous avez atteint le niveau ${response.newLevel} : ${response.newLevelTitle}`);
       }
-      return { ...prev, xp: newXp, level: newLevel };
-    });
-  };
-
-  const completeSession = (duration: number, type: FocusSession['type']) => {
-    const xpMap = { POMODORO: 50, SHORT_BREAK: 0, LONG_BREAK: 120 };
-    const xp = xpMap[type] || 0;
-
-    const newSession: FocusSession = {
-      id: uuidv4(),
-      startTime: new Date().toISOString(),
-      duration,
-      type,
-      completed: true,
-      xpEarned: xp,
-    };
-
-    setSessions([newSession, ...sessions]);
-    setStats(prev => ({
-      ...prev,
-      totalFocusTime: prev.totalFocusTime + duration,
-      sessionsCompleted: prev.sessionsCompleted + (type === 'POMODORO' ? 1 : 0),
-    }));
-    if (xp > 0) addXP(xp);
+      
+      await fetchStats();
+      // On pourrait aussi ajouter la session à l'état local si besoin
+    } catch (err) {
+      console.error("Error saving session:", err);
+    }
   };
 
   const calculateScore = (task: Task) => {
     if (task.status === 'DONE') return -1;
-
-    const priorityScore = { HIGH: 3, MEDIUM: 2, LOW: 1 }[task.priority];
-    
-    // Urgency
+    const priorityScore = { HIGH: 3, MEDIUM: 2, LOW: 1 }[task.priority as 'HIGH' | 'MEDIUM' | 'LOW'] || 1;
     const deadline = new Date(task.deadline);
     const now = new Date();
     const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
@@ -124,7 +171,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else if (diffDays <= 7) urgencyScore = 1;
 
     const investmentScore = task.status === 'IN_PROGRESS' ? 1 : 0;
-
     return (priorityScore * 3) + urgencyScore + investmentScore;
   };
 
@@ -137,12 +183,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tasks,
       stats,
       sessions,
+      isLoading,
       addTask,
       updateTaskStatus,
       deleteTask,
-      addXP,
       completeSession,
-      getSortedTasks
+      getSortedTasks,
+      refreshData
     }}>
       {children}
     </AppContext.Provider>

@@ -4,7 +4,7 @@ import React from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { FocusTimer } from "@/components/dashboard/FocusTimer";
 import { useApp } from "@/context/AppContext";
-import { Timer, History } from "lucide-react";
+import { History } from "lucide-react";
 
 export default function FocusPage() {
   const { sessions } = useApp();

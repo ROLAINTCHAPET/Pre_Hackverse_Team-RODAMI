@@ -20,7 +20,7 @@ export const Footer = () => {
               </span>
             </Link>
             <p className="text-white/80 max-w-sm mb-8 text-base font-bold leading-relaxed">
-              L'écosystème de productivité ultime pour les futurs ingénieurs de l'ENSPY. <br /> Rigueur scientifique & Excellence.
+              L&apos;écosystème de productivité ultime pour les futurs ingénieurs de l&apos;ENSPY. <br /> Rigueur scientifique &amp; Excellence.
             </p>
           </div>
           

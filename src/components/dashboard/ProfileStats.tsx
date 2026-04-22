@@ -3,7 +3,6 @@
 import React from "react";
 import { useApp } from "@/context/AppContext";
 import { Card } from "@/components/ui/Card";
-import { Badge as BadgeUI } from "@/components/ui/Badge";
 import { Trophy, Star, Target, Zap, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 

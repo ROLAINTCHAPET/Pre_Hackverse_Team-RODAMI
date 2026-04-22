@@ -2,7 +2,7 @@ export type Priority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 
 export interface Task {
-  id: string;
+  id: string | number;
   title: string;
   description?: string;
   priority: Priority;
@@ -22,7 +22,7 @@ export interface UserStats {
 }
 
 export interface Badge {
-  id: string;
+  id: string | number;
   name: string;
   description: string;
   icon: string;
@@ -30,7 +30,7 @@ export interface Badge {
 }
 
 export interface User {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   stats: UserStats;
@@ -38,7 +38,7 @@ export interface User {
 }
 
 export interface FocusSession {
-  id: string;
+  id: string | number;
   startTime: string;
   duration: number; // minutes
   type: 'POMODORO' | 'SHORT_BREAK' | 'LONG_BREAK';

@@ -14,7 +14,7 @@ export const StatsSection = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
         <div className="mb-20">
           <h2 className="text-3xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase">
-            L'Impact en <span className="text-primary-hover">Chiffres</span>
+            L&apos;Impact en <span className="text-primary-hover">Chiffres</span>
           </h2>
           <div className="w-20 h-1 bg-primary mx-auto mb-8" />
         </div>

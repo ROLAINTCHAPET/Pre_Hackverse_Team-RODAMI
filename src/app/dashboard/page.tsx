@@ -11,7 +11,22 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { stats, getSortedTasks } = useApp();
+  const { stats, getSortedTasks, isLoading } = useApp();
+  const [userName, setUserName] = React.useState("Étudiant");
+
+  React.useEffect(() => {
+    const userData = localStorage.getItem('user_data');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        const name = user.username || user.name || "Étudiant";
+        Promise.resolve().then(() => setUserName(name));
+      } catch (e) {
+        console.error("Error parsing user data", e);
+      }
+    }
+  }, []);
+
   const sortedTasks = getSortedTasks();
   const topTask = sortedTasks.find(t => t.status !== 'DONE');
 
@@ -22,21 +37,32 @@ export default function DashboardPage() {
     { label: "Niveau Actuel", value: stats.level, icon: Trophy, color: "text-tertiary", bg: "bg-tertiary/10" },
   ];
 
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <p className="text-text-secondary font-black uppercase tracking-widest text-xs">Initialisation de votre espace focus...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-10">
         {/* Welcome Section */}
-        <section className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
+        <section className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 text-center lg:text-left">
+          <div className="flex flex-col items-center lg:items-start">
             <h1 className="text-3xl md:text-5xl font-light text-text-main leading-tight mb-2">
-              Bonjour, <span className="font-black uppercase tracking-tighter italic">Jean</span>
+              Bonjour, <span className="font-black uppercase tracking-tighter italic">{userName}</span>
             </h1>
-            <p className="text-text-secondary border-l-4 border-primary pl-4 uppercase text-[10px] font-black tracking-[0.2em]">
+            <p className="text-text-secondary border-l-0 lg:border-l-4 border-primary pl-0 lg:pl-4 uppercase text-[9px] md:text-[10px] font-black tracking-[0.2em]">
               Prêt pour une session de focus intense ?
             </p>
           </div>
-          <Link href="/dashboard/focus">
-            <Button size="lg" className="h-16 px-10 flex items-center gap-3 group">
+          <Link href="/dashboard/focus" className="w-full lg:w-auto">
+            <Button size="lg" className="h-14 md:h-16 px-8 md:px-10 flex items-center justify-center gap-3 group w-full lg:w-auto">
               Démarrer un Focus
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </Button>

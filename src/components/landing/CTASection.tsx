@@ -34,8 +34,8 @@ export const CTASection = () => {
           </h2>
           
           <p className="text-base text-text-secondary mb-12 max-w-lg mx-auto relative z-10 font-bold uppercase tracking-widest border-t border-white/5 pt-10 opacity-70">
-            L'excellence n'attend pas. <br /> 
-            Rejoignez l'élite technologique.
+            L&apos;excellence n&apos;attend pas. <br /> 
+            Rejoignez l&apos;élite technologique.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center relative z-10">

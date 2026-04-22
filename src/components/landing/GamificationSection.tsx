@@ -2,12 +2,10 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/Badge";
-import { Flame, Star, Trophy, Users } from "lucide-react";
-import { useScrollReveal, revealVariants } from "@/hooks/useScrollReveal";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 export const GamificationSection = () => {
-  const { ref, controls } = useScrollReveal();
+  const { } = useScrollReveal();
 
   return (
     <section className="py-20 bg-bg-main overflow-hidden relative border-t border-white/5">
@@ -22,7 +20,7 @@ export const GamificationSection = () => {
             Zéro <span className="text-primary not-italic">Compromis</span>
           </h2>
           <p className="text-sm text-text-secondary leading-relaxed max-w-lg font-medium opacity-70">
-            Transformez chaque heure de code en prestige. Dominez le classement de l'ENSPY par votre rigueur.
+            Transformez chaque heure de code en prestige. Dominez le classement de l&apos;ENSPY par votre rigueur.
           </p>
         </div>
 
