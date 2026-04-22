@@ -53,14 +53,15 @@ export interface SessionSaveResult {
 
 export interface UserStats {
   level: number;
+  levelTitle?: string;
   totalPoints: number;
+  xp: number; // For progress bar, mapped to totalPoints or similar
   totalFocusTime: number; // minutes
   sessionsCompleted: number;
   tasksCompleted: number;
   streak: number;
   completionRate?: number;
   nextLevelXp?: number;
-  xp: number;
 }
 
 export interface LeaderboardEntry {

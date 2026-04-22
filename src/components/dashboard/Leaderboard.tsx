@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { statsApi } from "@/lib/api";
+import { StatsControllerService } from "@/lib";
 import { LeaderboardEntry } from "@/types";
 import { Card } from "@/components/ui/Card";
 import { Trophy, Medal, Star } from "lucide-react";
@@ -13,8 +13,14 @@ export const Leaderboard = () => {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const data = await statsApi.getLeaderboard(10);
-        setLeaderboard(data);
+        const data = await StatsControllerService.getLeaderboard(10);
+        const mappedLeaderboard = (data || []).map(entry => ({
+          username: entry.username || "Anonyme",
+          totalPoints: entry.totalPoints || 0,
+          level: entry.level || 1,
+          levelTitle: entry.levelTitle || "Novice"
+        }));
+        setLeaderboard(mappedLeaderboard);
       } catch (err) {
         console.error("Error fetching leaderboard:", err);
       } finally {

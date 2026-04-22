@@ -20,13 +20,17 @@ export type OpenAPIConfig = {
 };
 
 export const OpenAPI: OpenAPIConfig = {
-    BASE: 'https://pre-hackverse-team-rodami.onrender.com',
+    BASE: 'https://pre-hackverse-team-rodami.onrender.com/api',
     VERSION: '1.0',
     WITH_CREDENTIALS: false,
     CREDENTIALS: 'include',
-    TOKEN: undefined,
-    USERNAME: undefined,
-    PASSWORD: undefined,
-    HEADERS: undefined,
-    ENCODE_PATH: undefined,
+    TOKEN: async () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('auth_token') || '';
+        }
+        return '';
+    },
+    HEADERS: {
+        'Content-Type': 'application/json',
+    },
 };

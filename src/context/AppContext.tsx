@@ -2,7 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Task, UserStats, FocusSession, TaskStatus, User } from "@/types";
-import { tasksApi, sessionsApi, statsApi } from "@/lib/api";
+import { 
+  TaskControllerService, 
+  SessionControllerService, 
+  StatsControllerService, 
+  AuthControllerService,
+  StatsResponse,
+  TaskResponse
+} from "@/lib";
 import { useRouter } from "next/navigation";
 
 interface AppContextType {
@@ -41,8 +48,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchTasks = async () => {
     try {
-      const data = await tasksApi.listPrioritized();
-      setTasks(data);
+      const data = await TaskControllerService.getPrioritized();
+      setTasks(data as any);
     } catch (err) {
       console.error("Error fetching tasks:", err);
     }
@@ -50,8 +57,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchStats = async () => {
     try {
-      const data = await statsApi.getMe();
-      setStats(data);
+      const data: StatsResponse = await StatsControllerService.getMyStats();
+      setStats({
+        level: data.level || 1,
+        levelTitle: data.levelTitle,
+        totalPoints: data.totalPoints || 0,
+        xp: data.totalPoints || 0,
+        totalFocusTime: data.totalMinutesFocused || 0,
+        sessionsCompleted: data.totalCompletedSessions || 0,
+        tasksCompleted: data.totalTasksDone || 0,
+        streak: data.currentStreak || 0,
+        completionRate: data.completionRate
+      });
     } catch (err) {
       console.error("Error fetching stats:", err);
     }
@@ -59,8 +76,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchSessions = async () => {
     try {
-      const data = await sessionsApi.history(50);
-      setSessions(Array.isArray(data) ? data : (data.content || []));
+      const data = await SessionControllerService.getHistory(0, 50);
+      const rawData = Array.isArray(data) ? data : (data.content || []);
+      const mappedSessions: FocusSession[] = rawData.map((s: any) => ({
+        id: s.id || 0,
+        startTime: s.startTime || new Date().toISOString(),
+        duration: s.actualDuration || s.plannedDuration || 0,
+        xpEarned: s.pointsEarned || 0,
+        type: (s.actualDuration || 0) <= 5 ? 'SHORT_BREAK' : (s.actualDuration || 0) <= 15 ? 'LONG_BREAK' : 'POMODORO',
+        task: s.taskId ? { id: s.taskId, title: s.taskTitle || "Tâche sans titre" } as any : undefined
+      }));
+      setSessions(mappedSessions);
     } catch (err) {
       console.error("Error fetching sessions:", err);
     }
@@ -85,7 +111,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     router.push("/auth/login");
   }, [router]);
 
-  // Initial load
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user_data');
@@ -108,13 +133,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? taskData.deadline.split('.')[0]
         : `${taskData.deadline}T23:59:59`;
 
-      const response = await tasksApi.create({
-        ...taskData,
+      const response = await TaskControllerService.createTask({
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority as any,
         deadline: formattedDeadline,
-        plannedPomodoros: taskData.plannedPomodoros || 1
-      } as any);
+      });
 
-      setTasks(prev => [response, ...prev]);
+      setTasks(prev => [response as any, ...prev]);
     } catch (err) {
       console.error("Error adding task:", err);
       throw err;
@@ -126,12 +152,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const task = tasks.find(t => t.id === id);
       if (!task) return;
 
-      const response = await tasksApi.update(id, {
-        ...task,
-        status
+      const response = await TaskControllerService.updateTask(id as any, {
+        title: task.title,
+        description: task.description,
+        priority: task.priority as any,
+        status: status as any
       });
-
-      setTasks(prev => prev.map(t => t.id === id ? response : t));
+      setTasks(prev => prev.map(t => t.id === id ? response as any : t));
 
       if (status === 'DONE') {
         fetchStats();
@@ -143,7 +170,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteTask = async (id: string | number) => {
     try {
-      await tasksApi.delete(id);
+      await TaskControllerService.deleteTask(id as any);
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch (err) {
       console.error("Error deleting task:", err);
@@ -154,24 +181,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const startTime = new Date().toISOString().split('.')[0];
 
-      const response = await sessionsApi.save({
-        taskId: taskId || null,
+      const response = await SessionControllerService.saveSession({
+        taskId: taskId ? (taskId as any) : null as any,
         startTime: startTime,
         plannedDuration: duration,
         actualDuration: duration
       });
 
-      // Update local stats from response
       setStats(prev => ({
         ...prev,
-        totalPoints: response.newTotalPoints || prev.totalPoints + response.pointsEarned,
+        totalPoints: response.newTotalPoints || prev.totalPoints + (response.pointsEarned || 0),
+        xp: response.newTotalPoints || prev.totalPoints + (response.pointsEarned || 0),
         level: response.newLevel || prev.level,
         sessionsCompleted: prev.sessionsCompleted + 1,
         totalFocusTime: prev.totalFocusTime + duration
       }));
 
       if (response.leveledUp) {
-        // Optionnel : Déclencher un effet visuel ici au lieu d'un alert
         console.log(`Level Up! ${response.newLevelTitle}`);
       }
 
